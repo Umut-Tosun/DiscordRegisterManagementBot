@@ -1,4 +1,5 @@
-﻿using DSharpPlus;
+﻿using DiscordRegisterManagementBot.Entities;
+using DSharpPlus;
 using DSharpPlus.Entities;
 using DSharpPlus.Exceptions;
 using Newtonsoft.Json;
@@ -7,8 +8,10 @@ using DiscordRegisterManagementBot.config;
 using DiscordRegisterManagementBot.Entities;
 using System;
 using System.Collections.Generic;
+using System.Formats.Asn1;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
 using JsonReader = DiscordRegisterManagementBot.config.JsonReader;
@@ -43,7 +46,56 @@ namespace DiscordRegisterManagementBot.Events
         }
         public static async Task Client_ModalSubmitted(DiscordClient sender, DSharpPlus.EventArgs.ModalSubmitEventArgs args)
         {
+            var jsonReader = new JsonReader();
+            dynamic data = await jsonReader.ReadJson<GuildSettings>("data.json");
 
+            string roleId = String.Empty;
+            Settings currentGuild = new Settings();
+
+            data = await jsonReader.ReadJson<GuildSettings>("data.json");
+            ulong id = Convert.ToUInt64(args.Interaction.Data.CustomId.ToString().Substring(16, args.Interaction.Data.CustomId.Length - 16));
+            var newMember = args.Interaction.Guild.GetMemberAsync(Convert.ToUInt64(args.Interaction.Data.CustomId));
+
+            foreach (var obj in data.settings)
+            {
+                if (obj.guildId == args.Interaction.Guild.Id)
+                {
+                    roleId = obj.member_role_id.ToString();
+                    currentGuild = obj;
+                }
+            }
+
+            if (args.Interaction.Type == InteractionType.ModalSubmit)
+            {
+                string description = string.Empty;
+
+                var values = args.Values;
+                foreach (var item in values)
+                {
+                    description += $"{item.Key}: {item.Value} \n";
+                }
+                description += $"Kayıt Eden: {args.Interaction.User.Mention} \n";
+
+
+
+                var message = new DiscordMessageBuilder()
+                                 .AddEmbed(new DiscordEmbedBuilder()
+                                  .WithColor(DiscordColor.Aquamarine)
+                  .WithTitle("Sunucuya Yeni Kullanıcı Kayıt Oldu").WithDescription(description));
+
+                string newNickname = $"▼ {currentGuild.register_tag}`{values.FirstOrDefault(y => y.Key == "Name").Value} {values.FirstOrDefault(y => y.Key == "Age").Value} {values.FirstOrDefault(y => y.Key == "Nickname").Value}";
+                await newMember.Result.ModifyAsync(x => x.Nickname = newNickname);
+
+                var role = args.Interaction.Guild.Roles.Values.FirstOrDefault(r => r.Id == Convert.ToUInt64(currentGuild.unregistered_role_id));
+                if (role != null) await newMember.Result.RevokeRoleAsync(role);
+
+
+                var memberRole = args.Interaction.Guild.Roles.Values.FirstOrDefault(r => r.Id == Convert.ToUInt64(currentGuild.member_role_id));
+                if (memberRole != null) await newMember.Result.GrantRoleAsync(memberRole);
+
+                await args.Interaction.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource, new DiscordInteractionResponseBuilder().WithContent($" {newMember.Result.Mention}, {args.Interaction.User.Mention} tarafından kayıt edildi."));
+                await args.Interaction.Guild.GetChannel(Convert.ToUInt64(currentGuild.log_channel_id)).SendMessageAsync(message);
+            }
         }
 
         public static async Task Client_GuildMemberAdded(DiscordClient sender, DSharpPlus.EventArgs.GuildMemberAddEventArgs args)
@@ -77,8 +129,8 @@ namespace DiscordRegisterManagementBot.Events
                     {
                         try
                         {
-                            var btn_Register = new DiscordButtonComponent(ButtonStyle.Success, "RegisterToServer"  + args.Member.Id.ToString(), "Kayıt Et");
-                            var btn_kick     = new DiscordButtonComponent(ButtonStyle.Danger, "kickFromServer"     + args.Member.Id.ToString(), "Sunucudan Tekmele!");
+                            var btn_Register = new DiscordButtonComponent(ButtonStyle.Success, "RegisterToServer" + args.Member.Id.ToString(), "Kayıt Et");
+                            var btn_kick = new DiscordButtonComponent(ButtonStyle.Danger, "kickFromServer" + args.Member.Id.ToString(), "Sunucudan Tekmele!");
 
                             string accountStatus = args.Member.Verified != null ? "Güvenilir" : "Doğrulama Yapılmadı";
 
@@ -105,7 +157,8 @@ namespace DiscordRegisterManagementBot.Events
         {
             var jsonReader = new JsonReader();
             dynamic data = await jsonReader.ReadJson<GuildSettings>("data.json");
-          
+
+
 
             if (args.Interaction.Data.CustomId.Contains("kickFromServer"))
             {
@@ -143,17 +196,24 @@ namespace DiscordRegisterManagementBot.Events
 
             if (args.Interaction.Data.CustomId.Contains("RegisterToServer"))
             {
-                Settings dataGuild;
-
-                foreach (var obj in data.settings)
-                {
-                    if (obj.guildId == args.Guild.Id) dataGuild = obj;
-                }
+                string roleId = String.Empty;
+                Settings currentGuild = new Settings();
 
                 data = await jsonReader.ReadJson<GuildSettings>("data.json");
                 ulong id = Convert.ToUInt64(args.Interaction.Data.CustomId.ToString().Substring(16, args.Interaction.Data.CustomId.Length - 16));
                 var newMember = args.Guild.GetMemberAsync(id);
-                var roleCheck = newMember.Result.Roles.FirstOrDefault(x => x.Id == data.member_role_id);
+
+                foreach (var obj in data.settings)
+                {
+                    if (obj.guildId == args.Guild.Id)
+                    {
+                        roleId = obj.member_role_id.ToString();
+                        currentGuild = obj;
+                    }
+                }
+
+                var roleCheck = newMember.Result.Roles.FirstOrDefault(x => x.Id == Convert.ToUInt64(roleId));
+
                 if (roleCheck != null)
                 {
                     var failedMessage = new DiscordEmbedBuilder
@@ -167,18 +227,18 @@ namespace DiscordRegisterManagementBot.Events
                 }
                 else
                 {
-                  
-                 
-                    if ( ( data.registration_quesitons!= null ) || (data.registration_quesitons != "") )
+
+
+                    if (currentGuild.registration_quesitons != null)
                     {
 
                         var modal = new DiscordInteractionResponseBuilder()
                                          .WithTitle("Oyuncu Kayıt Etme")
                                          .WithCustomId(id.ToString());
 
-                        foreach ( var item in data.registration_quesitons)
+                        foreach (var item in currentGuild.registration_quesitons)
                         {
-                            modal.AddComponents(new TextInputComponent(label : item.label, customId: item.CustomId, placeholder: item.PlaceHolder));
+                            modal.AddComponents(new TextInputComponent(label: item.Label, customId: item.CustomId, placeholder: item.PlaceHolder));
                         }
 
                         await args.Interaction.CreateResponseAsync(DSharpPlus.InteractionResponseType.Modal, modal);

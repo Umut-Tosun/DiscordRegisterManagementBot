@@ -1,4 +1,5 @@
-﻿using System;
+using DiscordRegisterManagementBot.Entities;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -16,5 +17,6 @@ namespace DiscordRegisterManagementBot.Entities
         public string register_channel_id { get; set; }
         public string log_channel_id { get; set; }
         public string register_tag { get; set; }
+        public List<Question> registration_quesitons { get; set; }
     }
 }

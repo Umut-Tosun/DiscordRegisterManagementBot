@@ -10,7 +10,6 @@
       "register_tag": null,
       "modaretor_role_id": "1257790824582873109",
       "registration_quesitons": []
-
     },
     {
       "guildId": 1257784861519908965,
@@ -18,8 +17,8 @@
       "unregistered_role_id": "1257785128646737960",
       "member_role_id": "1257785277057859644",
       "register_channel_id": "1257784861519908967",
-      "log_channel_id": null,
-      "register_tag": null,
+      "log_channel_id": "1258337569146409071",
+      "register_tag": "GB",
       "modaretor_role_id": "1257790824582873109",
       "registration_quesitons": [
         {
@@ -28,7 +27,7 @@
           "PlaceHolder": "Zorunlu Alan"
         },
         {
-          "Label": "Geldiği Klan",
+          "Label": "Geldiği klan",
           "CustomId": "OldCrew",
           "PlaceHolder": "Zorunlu Alan"
         },
@@ -47,7 +46,9 @@
           "CustomId": "Age",
           "PlaceHolder": "Zorunlu Alan"
         }
+
       ]
+
     }
   ]
 }
